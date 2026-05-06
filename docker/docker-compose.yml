@@ -1,4 +1,10 @@
 services:
+  ollama:
+    image: ollama/ollama:latest
+    volumes:
+      - ollama-data:/root/.ollama
+    restart: unless-stopped
+
   openclaw:
     image: ghcr.io/openclaw/openclaw:latest
     environment:
@@ -6,13 +12,16 @@ services:
       - OPENCLAW_REPLY_CHANNEL=discord
       - OPENCLAW_REPLY_TARGET=${DISCORD_CHANNEL_ID}
       - OPENCLAW_TOKEN=${OPENCLAW_TOKEN}
-      - OPENCLAW_GATEWAY_URL=${OPENCLAW_GATEWAY_URL}
-      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://host.docker.internal:11434/v1}
-      - NULLCLAW_LLAMA_URL=${NULLCLAW_LLAMA_URL}
-      - LOGICAGENT_LLAMA_URL=${LOGICAGENT_LLAMA_URL}
-      - MAINTAINERAGENT_LLAMA_URL=${MAINTAINERAGENT_LLAMA_URL:-${OLLAMA_BASE_URL:-http://host.docker.internal:11434/v1}}
+      - DISCORD_BOT_TOKEN=${DISCORD_BOT_TOKEN}
+      - OLLAMA_BASE_URL=http://ollama:11434/v1
+      - NULLCLAW_LLAMA_URL=http://ollama:11434/v1
+      - LOGICAGENT_LLAMA_URL=http://ollama:11434/v1
+      - MAINTAINERAGENT_LLAMA_URL=http://ollama:11434/v1
       - LUCID_MCP_URL=${LUCID_MCP_URL}
+    depends_on:
+      - ollama
     volumes:
+      - openclaw-config:/home/node/.openclaw
       - ${HOST_DIR:-..}:/host:ro
       - ${HOST_DIR:-..}/debates:/workspace/debates:rw
       - ${HOST_DIR:-..}/agents/nullclaw/memory:/workspace/agents/nullclaw/memory:rw
@@ -27,10 +36,10 @@ services:
       dockerfile: Dockerfile.digital-twin
     environment:
       - ISSUE_URL=${ISSUE_URL:-}
-      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://host.docker.internal:11434/v1}
-      - NULLCLAW_LLAMA_URL=${NULLCLAW_LLAMA_URL:-${OLLAMA_BASE_URL:-http://host.docker.internal:11434/v1}}
-      - LOGICAGENT_LLAMA_URL=${LOGICAGENT_LLAMA_URL:-${OLLAMA_BASE_URL:-http://host.docker.internal:11434/v1}}
-      - MAINTAINERAGENT_LLAMA_URL=${MAINTAINERAGENT_LLAMA_URL:-${OLLAMA_BASE_URL:-http://host.docker.internal:11434/v1}}
+      - OLLAMA_BASE_URL=http://ollama:11434/v1
+      - NULLCLAW_LLAMA_URL=http://ollama:11434/v1
+      - LOGICAGENT_LLAMA_URL=http://ollama:11434/v1
+      - MAINTAINERAGENT_LLAMA_URL=http://ollama:11434/v1
       - HINDSIGHT_MCP_URL=http://hindsight-mcp:8888
       - LUCID_MCP_URL=http://lucid-mcp:9000
       - DEBATE_TOPIC=${DEBATE_TOPIC:-}
@@ -42,6 +51,7 @@ services:
       - ${HOST_DIR:-..}/agents/nullclaw/memory:/workspace/agents/nullclaw/memory:rw
       - ./agents/logicagent/memory:/workspace/agents/logicagent/memory:rw
     depends_on:
+      - ollama
       - hindsight-mcp
       - lucid-mcp
     extra_hosts:
@@ -51,7 +61,8 @@ services:
     image: ghcr.io/vectorize-io/hindsight-api:latest
     environment:
       - HINDSIGHT_API_LLM_PROVIDER=ollama
-      - HINDSIGHT_API_LLM_MODEL=${HINDSIGHT_LLM_MODEL:-llama3.2}
+      - HINDSIGHT_API_LLM_BASE_URL=http://ollama:11434/v1
+      - HINDSIGHT_API_LLM_MODEL=${HINDSIGHT_LLM_MODEL:-qwen3.5:0.8b}
       - HINDSIGHT_API_PORT=8888
     ports:
       - "8888:8888"
@@ -78,3 +89,5 @@ services:
 
 volumes:
   hindsight-data:
+  ollama-data:
+  openclaw-config:

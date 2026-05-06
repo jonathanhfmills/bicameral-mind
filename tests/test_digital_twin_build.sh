@@ -7,7 +7,7 @@ DOCKER_DIR="$BICAMERAL_ROOT/docker"
 
 [[ -f "$DOCKER_DIR/Dockerfile.digital-twin" ]] || { echo "FAIL: docker/Dockerfile.digital-twin not found"; exit 1; }
 
-for stage in apt nvm node claude "claude-plugins" hindsight qwen gemini; do
+for stage in apt nodesource node claude "claude-plugins" hindsight qwen gemini; do
   if ! grep -qi "$stage" "$DOCKER_DIR/Dockerfile.digital-twin"; then
     echo "FAIL: Dockerfile.digital-twin missing stage: $stage"
     exit 1
