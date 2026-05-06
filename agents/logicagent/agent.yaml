@@ -5,13 +5,13 @@ soul: SOUL.md
 rules: RULES.md
 model:
   provider: openai_compatible
-  base_url: "${LOGICAGENT_LLAMA_URL:-${HERMES_LLAMA_URL:-http://localhost:8081/v1}}"  # llama.cpp, Qwen 3.5, laptop A4000
-  model: "${LOGICAGENT_MODEL:-${HERMES_MODEL:-qwen3.5}}"
+  base_url: "${LOGICAGENT_LLAMA_URL:-${OLLAMA_BASE_URL:-http://localhost:11434/v1}}"
+  model: "${LOGICAGENT_MODEL:-qwen2.5:7b}"
 memory:
   provider: hindsight
   mode: local_embedded
   llm_provider: openai_compatible
-  llm_base_url: "${LOGICAGENT_LLAMA_URL:-${HERMES_LLAMA_URL:-http://localhost:8081/v1}}"
+  llm_base_url: "${LOGICAGENT_LLAMA_URL:-${OLLAMA_BASE_URL:-http://localhost:11434/v1}}"
   bank_id_template: "logicagent-{workspace}"
   memory_mode: hybrid
   auto_recall: true

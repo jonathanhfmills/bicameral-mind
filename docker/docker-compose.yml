@@ -7,8 +7,10 @@ services:
       - OPENCLAW_REPLY_TARGET=${DISCORD_CHANNEL_ID}
       - OPENCLAW_TOKEN=${OPENCLAW_TOKEN}
       - OPENCLAW_GATEWAY_URL=${OPENCLAW_GATEWAY_URL}
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://host.docker.internal:11434/v1}
       - NULLCLAW_LLAMA_URL=${NULLCLAW_LLAMA_URL}
-      - LOGICAGENT_LLAMA_URL=${LOGICAGENT_LLAMA_URL:-${HERMES_LLAMA_URL}}
+      - LOGICAGENT_LLAMA_URL=${LOGICAGENT_LLAMA_URL}
+      - MAINTAINERAGENT_LLAMA_URL=${MAINTAINERAGENT_LLAMA_URL:-${OLLAMA_BASE_URL:-http://host.docker.internal:11434/v1}}
       - LUCID_MCP_URL=${LUCID_MCP_URL}
     volumes:
       - ${HOST_DIR:-..}:/host:ro
@@ -24,8 +26,10 @@ services:
       dockerfile: Dockerfile.digital-twin
     environment:
       - ISSUE_URL=${ISSUE_URL:-}
-      - NULLCLAW_LLAMA_URL=${NULLCLAW_LLAMA_URL:-http://localhost:8080/v1}
-      - LOGICAGENT_LLAMA_URL=${LOGICAGENT_LLAMA_URL:-${HERMES_LLAMA_URL:-http://localhost:8081/v1}}
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://host.docker.internal:11434/v1}
+      - NULLCLAW_LLAMA_URL=${NULLCLAW_LLAMA_URL:-${OLLAMA_BASE_URL:-http://host.docker.internal:11434/v1}}
+      - LOGICAGENT_LLAMA_URL=${LOGICAGENT_LLAMA_URL:-${OLLAMA_BASE_URL:-http://host.docker.internal:11434/v1}}
+      - MAINTAINERAGENT_LLAMA_URL=${MAINTAINERAGENT_LLAMA_URL:-${OLLAMA_BASE_URL:-http://host.docker.internal:11434/v1}}
       - HINDSIGHT_MCP_URL=http://hindsight-mcp:8888
       - LUCID_MCP_URL=http://lucid-mcp:9000
       - DEBATE_TOPIC=${DEBATE_TOPIC:-}

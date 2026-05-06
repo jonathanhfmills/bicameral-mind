@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""3-turn debate: Nullclaw (hindsight_litellm/Gemma4) vs LogicAgent (qwen_agent/Qwen3.5)."""
+"""3-turn debate: Nullclaw (hindsight_litellm/Gemma) vs LogicAgent (qwen_agent/Qwen2.5)."""
 import os
 import sys
 import json
@@ -21,13 +21,16 @@ ISSUE_SLUG = os.environ.get(
 DATE = datetime.date.today().isoformat()
 RECORD = DEBATES_DIR / f"{DATE}-{ISSUE_SLUG}.md"
 
-NULLCLAW_LLAMA_URL = os.environ.get("NULLCLAW_LLAMA_URL", "http://localhost:8080/v1")
-LOGICAGENT_LLAMA_URL = os.environ.get(
-    "LOGICAGENT_LLAMA_URL",
-    os.environ.get("HERMES_LLAMA_URL", "http://localhost:8081/v1"),
-)
+OLLAMA_BASE_URL = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434/v1")
+NULLCLAW_LLAMA_URL = os.environ.get("NULLCLAW_LLAMA_URL", os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434/v1"))
+LOGICAGENT_LLAMA_URL = os.environ.get("LOGICAGENT_LLAMA_URL", os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434/v1"))
+MAINTAINERAGENT_LLAMA_URL = os.environ.get("MAINTAINERAGENT_LLAMA_URL", os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434/v1"))
 HINDSIGHT_URL = os.environ.get("HINDSIGHT_MCP_URL", "http://localhost:8888")
 LUCID_URL = os.environ.get("LUCID_MCP_URL", "http://localhost:9000")
+
+FEELINGSAGENT_MODEL = os.environ.get("FEELINGSAGENT_MODEL", os.environ.get("NULLCLAW_MODEL", "gemma2:9b"))
+LOGICAGENT_MODEL = os.environ.get("LOGICAGENT_MODEL", os.environ.get("HERMES_MODEL", "qwen2.5:7b"))
+MAINTAINERAGENT_MODEL = os.environ.get("MAINTAINERAGENT_MODEL", "qwen2.5:7b")
 
 
 def seed_context(topic: str) -> str:
@@ -61,7 +64,7 @@ def seed_context(topic: str) -> str:
 
 
 def run_nullclaw(prompt: str, seed: str = "") -> str:
-    """Nullclaw turn: hindsight_litellm → Gemma 4 (feelings-first)."""
+    """Nullclaw turn: hindsight_litellm → FeelingsAgent (feelings-first)."""
     if DRY_RUN or not NULLCLAW_LLAMA_URL:
         return f"[stub] nullclaw responds to: {prompt[:80]}"
     try:
@@ -77,7 +80,7 @@ def run_nullclaw(prompt: str, seed: str = "") -> str:
             messages.append({"role": "system", "content": seed})
         messages.append({"role": "user", "content": prompt})
         resp = hindsight_litellm.completion(
-            model="openai/gemma4",
+            model=f"openai/{FEELINGSAGENT_MODEL}",
             messages=messages,
             hindsight_query=prompt,
             api_base=NULLCLAW_LLAMA_URL,
@@ -89,14 +92,14 @@ def run_nullclaw(prompt: str, seed: str = "") -> str:
 
 
 def run_logicagent(prompt: str, seed: str = "") -> str:
-    """LogicAgent turn: qwen_agent.Assistant → Qwen 3.5 (logic-first)."""
+    """LogicAgent turn: qwen_agent.Assistant → LogicAgent (logic-first)."""
     if DRY_RUN or not LOGICAGENT_LLAMA_URL:
         return f"[stub] logicagent responds to: {prompt[:80]}"
     try:
         from qwen_agent.agents import Assistant
         agent = Assistant(
             llm={
-                "model": "qwen3.5",
+                "model": LOGICAGENT_MODEL,
                 "model_server": LOGICAGENT_LLAMA_URL,
                 "api_key": "local",
                 "generate_cfg": {"enable_thinking": True},
@@ -114,22 +117,38 @@ def run_logicagent(prompt: str, seed: str = "") -> str:
         return f"[logicagent error: {e}]"
 
 
+def run_maintaineragent(topic: str, seed: str = "") -> tuple[str, str, str, float]:
+    """MaintainerAgent: orchestrates 3-turn debate loop, returns (turn1, turn2, turn3, confidence)."""
+    turn1 = run_nullclaw(topic, seed=seed)
+    turn2 = run_logicagent(turn1, seed=seed)
+    turn3 = run_nullclaw(turn2)
+
+    base_confidence = float(os.environ.get("DEBATE_CONFIDENCE", "0.50"))
+    turn_confidences = [base_confidence, base_confidence, base_confidence]
+    maintainer_confidence = sum(turn_confidences) / len(turn_confidences)
+
+    if DRY_RUN:
+        verdict = f"[stub] maintainer final confidence: {maintainer_confidence:.2f}"
+    else:
+        verdict = f"maintainer final confidence: {maintainer_confidence:.2f}"
+
+    return turn1, turn2, turn3, maintainer_confidence
+
+
 def main() -> None:
     DEBATES_DIR.mkdir(parents=True, exist_ok=True)
 
     seed = seed_context(TOPIC)
 
-    turn1 = run_nullclaw(TOPIC, seed=seed)
-    turn2 = run_logicagent(turn1, seed=seed)
-    turn3 = run_nullclaw(turn2)
+    turn1, turn2, turn3, confidence = run_maintaineragent(TOPIC, seed=seed)
 
-    confidence = float(os.environ.get("DEBATE_CONFIDENCE", "0.50"))
+    print(f"[run_debate] MaintainerAgent verdict: {confidence:.2f}")
 
     RECORD.write_text(
         f"""---
 date: {DATE}
 issue_slug: {ISSUE_SLUG}
-agents: [nullclaw, logicagent]
+agents: [nullclaw, logicagent, maintaineragent]
 turns: 3
 confidence: {confidence:.2f}
 topic: "{TOPIC}"

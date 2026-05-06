@@ -1,4 +1,4 @@
-.PHONY: help debate ralph escalate training-pr observer maintainer digital-twin agent-start hindsight test
+.PHONY: help debate ralph escalate training-pr observer maintainer digital-twin agent-start hindsight test ollama
 
 SHELL := /bin/bash
 
@@ -19,6 +19,7 @@ help:
 	@echo "  agent-start    Start OpenSandbox desktop sandbox"
 	@echo "  hindsight      Install hindsight-client + hindsight-litellm memory providers"
 	@echo "  test           Run all engine tests"
+	@echo "  ollama         Setup guide for Ollama models (qwen2.5:7b + gemma2:9b)"
 
 debate:
 	@HOST_DIR="$(HOST_DIR)" python3 "$(CURDIR)/scripts/run_debate.py"
@@ -54,3 +55,8 @@ test:
 	@chmod +x tests/*.sh
 	@for t in tests/test_*.sh; do bash "$$t" || exit 1; done
 	@echo "All engine tests passed"
+
+ollama:
+	@echo "Ollama setup: install from https://ollama.ai then:"
+	@echo "  ollama pull qwen2.5:7b"
+	@echo "  ollama pull gemma2:9b"

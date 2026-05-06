@@ -1,0 +1,22 @@
+name: maintaineragent
+description: "Orchestrator. Runs debate loop, scores multi-layer confidence, decides escalation."
+runtime: ghcr.io/openclaw/openclaw:latest
+soul: SOUL.md
+rules: RULES.md
+model:
+  provider: openai_compatible
+  base_url: "${MAINTAINERAGENT_LLAMA_URL:-${OLLAMA_BASE_URL:-http://localhost:11434/v1}}"
+  model: "${MAINTAINERAGENT_MODEL:-qwen2.5:7b}"
+sub_agents:
+  - agents/logicagent
+  - ../agents/nullclaw
+memory:
+  provider: hindsight
+  mode: local_embedded
+  bank_id_template: "maintaineragent-{workspace}"
+confidence:
+  threshold: 0.75
+  consecutive_runs: 2
+  layers:
+    - logicagent
+    - feelingsagent
