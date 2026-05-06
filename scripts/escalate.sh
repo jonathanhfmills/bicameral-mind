@@ -10,5 +10,11 @@ if [[ -z "$ISSUE_URL" ]]; then
   exit 1
 fi
 
+# Validate GitHub URL to prevent prompt injection
+if ! echo "$ISSUE_URL" | grep -qE '^https://github\.com/[a-zA-Z0-9_.-]+/[a-zA-Z0-9_.-]+/issues/[0-9]+$'; then
+  echo "[escalate] ERROR: ISSUE_URL must be a GitHub issue URL (https://github.com/owner/repo/issues/N)"
+  exit 1
+fi
+
 echo "[escalate] Escalating to Claude Code: $ISSUE_URL"
 claude --print "Implement the GitHub issue at $ISSUE_URL"

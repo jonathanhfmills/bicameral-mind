@@ -21,13 +21,20 @@ mkdir -p "$DEBATES_DIR"
 
 run_turn() {
   local agent="$1" prompt="$2"
-  if [[ "$DRY_RUN" == "true" ]] || [[ -z "${NULLCLAW_LLAMA_URL:-}" ]]; then
+  if [[ "$DRY_RUN" == "true" ]]; then
     echo "[stub] $agent responds to: $prompt"
     return
   fi
-  curl -sf "${OPENCLAW_API_URL:-http://localhost:8090}/debate/turn" \
-    -H "Content-Type: application/json" \
-    -d "{\"agent\":\"$agent\",\"prompt\":$(printf '%s' "$prompt" | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read()))')}"
+  printf '%s' "$prompt" | python3 -c "
+import json, sys, urllib.request, os
+payload = json.dumps({'agent': '$agent', 'prompt': sys.stdin.read()})
+req = urllib.request.Request(
+    os.environ.get('OPENCLAW_API_URL', 'http://localhost:8090/debate/turn'),
+    data=payload.encode(),
+    headers={'Content-Type': 'application/json'},
+)
+print(urllib.request.urlopen(req).read().decode())
+"
 }
 
 TURN1=$(run_turn nullclaw "$TOPIC")
@@ -35,12 +42,6 @@ TURN2=$(run_turn logicagent "$TURN1")
 TURN3=$(run_turn nullclaw "$TURN2")
 
 CONFIDENCE="${DEBATE_CONFIDENCE:-0.50}"
-if [[ "$DRY_RUN" != "true" ]] && [[ -n "${OPENCLAW_API_URL:-}" ]]; then
-  CONFIDENCE=$(curl -sf "$OPENCLAW_API_URL/debate/confidence" \
-    -H "Content-Type: application/json" \
-    -d "{\"turns\":[$(printf '%s' "$TURN1 $TURN2 $TURN3" | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read()))]}')" \
-    | python3 -c 'import json,sys; print(json.load(sys.stdin)["score"])' 2>/dev/null || echo "0.50")
-fi
 
 cat > "$RECORD" <<EOF
 ---

@@ -17,7 +17,8 @@ services:
       - ${HOST_DIR:-..}/debates:/workspace/debates:rw
       - ${HOST_DIR:-..}/agents/nullclaw/memory:/workspace/agents/nullclaw/memory:rw
       - ./agents/logicagent/memory:/workspace/agents/logicagent/memory:rw
-    network_mode: host
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     restart: unless-stopped
 
   digital-twin:
@@ -43,7 +44,8 @@ services:
     depends_on:
       - hindsight-mcp
       - lucid-mcp
-    network_mode: host
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
   hindsight-mcp:
     image: ghcr.io/vectorize-io/hindsight-api:latest
@@ -68,11 +70,11 @@ services:
   desktop:
     image: opensandbox/desktop:latest
     environment:
-      - VNC_PASSWORD=${VNC_PASSWORD:-opensandbox}
+      - VNC_PASSWORD=${VNC_PASSWORD:?VNC_PASSWORD required}
       - SANDBOX_DOMAIN=localhost:8080
     ports:
-      - "5900:5900"
-      - "6080:6080"
+      - "127.0.0.1:5900:5900"
+      - "127.0.0.1:6080:6080"
 
 volumes:
   hindsight-data:

@@ -28,9 +28,8 @@ MAINTAINERAGENT_LLAMA_URL = os.environ.get("MAINTAINERAGENT_LLAMA_URL", os.envir
 HINDSIGHT_URL = os.environ.get("HINDSIGHT_MCP_URL", "http://localhost:8888")
 LUCID_URL = os.environ.get("LUCID_MCP_URL", "http://localhost:9000")
 
-FEELINGSAGENT_MODEL = os.environ.get("FEELINGSAGENT_MODEL", os.environ.get("NULLCLAW_MODEL", "gemma2:9b"))
+NULLCLAW_MODEL = os.environ.get("NULLCLAW_MODEL", os.environ.get("FEELINGSAGENT_MODEL", "gemma2:9b"))
 LOGICAGENT_MODEL = os.environ.get("LOGICAGENT_MODEL", os.environ.get("HERMES_MODEL", "qwen2.5:7b"))
-MAINTAINERAGENT_MODEL = os.environ.get("MAINTAINERAGENT_MODEL", "qwen2.5:7b")
 
 
 def seed_context(topic: str) -> str:
@@ -65,7 +64,7 @@ def seed_context(topic: str) -> str:
 
 def run_nullclaw(prompt: str, seed: str = "") -> str:
     """Nullclaw turn: hindsight_litellm → FeelingsAgent (feelings-first)."""
-    if DRY_RUN or not NULLCLAW_LLAMA_URL:
+    if DRY_RUN:
         return f"[stub] nullclaw responds to: {prompt[:80]}"
     try:
         import hindsight_litellm
@@ -80,7 +79,7 @@ def run_nullclaw(prompt: str, seed: str = "") -> str:
             messages.append({"role": "system", "content": seed})
         messages.append({"role": "user", "content": prompt})
         resp = hindsight_litellm.completion(
-            model=f"openai/{FEELINGSAGENT_MODEL}",
+            model=f"openai/{NULLCLAW_MODEL}",
             messages=messages,
             hindsight_query=prompt,
             api_base=NULLCLAW_LLAMA_URL,
@@ -93,7 +92,7 @@ def run_nullclaw(prompt: str, seed: str = "") -> str:
 
 def run_logicagent(prompt: str, seed: str = "") -> str:
     """LogicAgent turn: qwen_agent.Assistant → LogicAgent (logic-first)."""
-    if DRY_RUN or not LOGICAGENT_LLAMA_URL:
+    if DRY_RUN:
         return f"[stub] logicagent responds to: {prompt[:80]}"
     try:
         from qwen_agent.agents import Assistant
@@ -121,16 +120,11 @@ def run_maintaineragent(topic: str, seed: str = "") -> tuple[str, str, str, floa
     """MaintainerAgent: orchestrates 3-turn debate loop, returns (turn1, turn2, turn3, confidence)."""
     turn1 = run_nullclaw(topic, seed=seed)
     turn2 = run_logicagent(turn1, seed=seed)
-    turn3 = run_nullclaw(turn2)
+    turn3 = run_nullclaw(turn2, seed=seed)
 
     base_confidence = float(os.environ.get("DEBATE_CONFIDENCE", "0.50"))
     turn_confidences = [base_confidence, base_confidence, base_confidence]
     maintainer_confidence = sum(turn_confidences) / len(turn_confidences)
-
-    if DRY_RUN:
-        verdict = f"[stub] maintainer final confidence: {maintainer_confidence:.2f}"
-    else:
-        verdict = f"maintainer final confidence: {maintainer_confidence:.2f}"
 
     return turn1, turn2, turn3, maintainer_confidence
 

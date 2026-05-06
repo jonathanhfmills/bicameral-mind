@@ -8,6 +8,7 @@ trap 'rm -rf "$DEBATES_DIR"' EXIT
 echo "[test_git_hook] Simulating new issue event..."
 
 SLUG="hook-test-$$"
+DRY_RUN=true \
 DEBATES_DIR="$DEBATES_DIR" \
   bash "$BICAMERAL_ROOT/scripts/on_issue.sh" \
   "https://github.com/example/repo/issues/99" \

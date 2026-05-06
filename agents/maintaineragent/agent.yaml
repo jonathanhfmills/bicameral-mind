@@ -9,7 +9,8 @@ model:
   model: "${MAINTAINERAGENT_MODEL:-qwen2.5:7b}"
 sub_agents:
   - agents/logicagent
-  - ../agents/nullclaw
+  - ${HOST_DIR:-.}/../agents/nullclaw  # host-repo agent
+  # nullclaw lives in the host repo, not in bicameral-mind
 memory:
   provider: hindsight
   mode: local_embedded
@@ -18,5 +19,8 @@ confidence:
   threshold: 0.75
   consecutive_runs: 2
   layers:
+    - nullclaw
     - logicagent
-    - feelingsagent
+  weights:
+    nullclaw: 0.5
+    logicagent: 0.5
