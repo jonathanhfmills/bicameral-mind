@@ -31,6 +31,20 @@ confidence_scores=()
 
 echo "[ralph] Starting loop. Issue: ${ISSUE_URL:-stub} threshold=${CONFIDENCE_THRESHOLD}x2"
 
+DISCORD_THREAD_ID=""
+if [[ -n "${DISCORD_BOT_TOKEN:-}" && -n "${DISCORD_FORUM_CHANNEL_ID:-}" ]]; then
+  THREAD_TITLE="${ISSUE_URL:-${DEBATE_TOPIC:-unnamed}}"
+  THREAD_RESP=$(curl -sf -X POST \
+    "https://discord.com/api/v10/channels/${DISCORD_FORUM_CHANNEL_ID}/threads" \
+    -H "Authorization: Bot ${DISCORD_BOT_TOKEN}" \
+    -H "Content-Type: application/json" \
+    -d "{\"name\":\"$(echo "$THREAD_TITLE" | cut -c1-100)\",\"message\":{\"content\":\"👀 Debate started: ${ISSUE_URL:-unnamed}\"}}" \
+    2>/dev/null || echo "")
+  DISCORD_THREAD_ID=$(echo "$THREAD_RESP" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('id',''))" 2>/dev/null || echo "")
+  [[ -n "$DISCORD_THREAD_ID" ]] && echo "[ralph] Forum thread created: $DISCORD_THREAD_ID"
+fi
+export DISCORD_THREAD_ID DISCORD_BOT_TOKEN DISCORD_MENTION_USER_ID
+
 while [[ $attempt -lt $MAX_ATTEMPTS ]]; do
   attempt=$((attempt + 1))
   echo "[ralph] Attempt $attempt/$MAX_ATTEMPTS"
@@ -46,7 +60,7 @@ while [[ $attempt -lt $MAX_ATTEMPTS ]]; do
       confidence="0.50"
     fi
   else
-    HOST_DIR="$HOST_DIR" ISSUE_URL="$ISSUE_URL" python3 "$RUN_DEBATE" 2>/dev/null || true
+    DISCORD_THREAD_ID="$DISCORD_THREAD_ID" HOST_DIR="$HOST_DIR" ISSUE_URL="$ISSUE_URL" python3 "$RUN_DEBATE" 2>/dev/null || true
     RECORD=$(ls -t "$HOST_DIR/debates/"*.md 2>/dev/null | head -1)
     confidence=$(grep "^confidence:" "$RECORD" 2>/dev/null | head -1 | awk '{print $2}' || echo "0.50")
   fi
@@ -77,12 +91,15 @@ CONFIDENCE_SCORES="${confidence_scores[*]}" \
 
 echo "[ralph] Done. Final confidence: $last_confidence after $attempt attempt(s)"
 
-if [[ -n "${DISCORD_BOT_TOKEN:-}" && -n "${DISCORD_CHANNEL_ID:-}" ]]; then
-  RECORD=$(ls -t "$HOST_DIR/debates/"*.md 2>/dev/null | head -1)
-  MSG="🧠 Debate complete: ${ISSUE_URL:-unnamed}\nConfidence: ${last_confidence} after ${attempt} attempt(s)\nRecord: $(basename "$RECORD" 2>/dev/null || echo 'none')"
-  curl -sf -X POST "https://discord.com/api/v10/channels/${DISCORD_CHANNEL_ID}/messages" \
+if [[ -n "${DISCORD_BOT_TOKEN:-}" && -n "${DISCORD_THREAD_ID:-}" ]]; then
+  if [[ $consecutive -ge 2 ]]; then
+    MSG="✅ Debate complete — confidence ${last_confidence} after ${attempt} attempt(s). <@${DISCORD_MENTION_USER_ID:-}> Merge to train or close to reject."
+  else
+    MSG="⚠️ Max attempts reached — confidence ${last_confidence} after ${attempt} attempt(s). <@${DISCORD_MENTION_USER_ID:-}> Needs human review."
+  fi
+  curl -sf -X POST "https://discord.com/api/v10/channels/${DISCORD_THREAD_ID}/messages" \
     -H "Authorization: Bot ${DISCORD_BOT_TOKEN}" \
     -H "Content-Type: application/json" \
     -d "{\"content\":\"${MSG}\"}" > /dev/null \
-    && echo "[ralph] Discord notification sent" || echo "[ralph] Discord notification failed (non-fatal)"
+    && echo "[ralph] Discord thread final post sent" || echo "[ralph] Discord thread post failed (non-fatal)"
 fi
