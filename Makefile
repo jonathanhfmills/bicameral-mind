@@ -74,7 +74,7 @@ llama-install: ## Build llama.cpp with CUDA from source
 
 llama-download: ## Download Qwen3.5-4B UD-Q4_K_XL GGUF
 	mkdir -p $(MODELS_DIR)
-	huggingface-cli download unsloth/Qwen3.5-4B-GGUF \
+	hf download unsloth/Qwen3.5-4B-GGUF \
 		Qwen3.5-4B-UD-Q4_K_XL.gguf \
 		--local-dir $(MODELS_DIR)
 
