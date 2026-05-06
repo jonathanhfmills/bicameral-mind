@@ -33,12 +33,12 @@ echo "[ralph] Starting loop. Issue: ${ISSUE_URL:-stub} threshold=${CONFIDENCE_TH
 
 DISCORD_THREAD_ID=""
 if [[ -n "${DISCORD_BOT_TOKEN:-}" && -n "${DISCORD_FORUM_CHANNEL_ID:-}" ]]; then
-  THREAD_TITLE="${ISSUE_URL:-${DEBATE_TOPIC:-unnamed}}"
+  THREAD_TITLE=$(echo "${ISSUE_URL:-${DEBATE_TOPIC:-unnamed}}" | sed 's|https\?://[^/]*/||')
   THREAD_RESP=$(curl -sf -X POST \
     "https://discord.com/api/v10/channels/${DISCORD_FORUM_CHANNEL_ID}/threads" \
     -H "Authorization: Bot ${DISCORD_BOT_TOKEN}" \
     -H "Content-Type: application/json" \
-    -d "{\"name\":\"$(echo "$THREAD_TITLE" | cut -c1-100)\",\"message\":{\"content\":\"👀 Debate started: ${ISSUE_URL:-unnamed}\"}}" \
+    -d "{\"name\":\"$(echo "$THREAD_TITLE" | cut -c1-100)\",\"message\":{\"content\":\"👀 ${THREAD_TITLE}\"}}" \
     2>/dev/null || echo "")
   DISCORD_THREAD_ID=$(echo "$THREAD_RESP" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('id',''))" 2>/dev/null || echo "")
   [[ -n "$DISCORD_THREAD_ID" ]] && echo "[ralph] Forum thread created: $DISCORD_THREAD_ID"
@@ -93,9 +93,9 @@ echo "[ralph] Done. Final confidence: $last_confidence after $attempt attempt(s)
 
 if [[ -n "${DISCORD_BOT_TOKEN:-}" && -n "${DISCORD_THREAD_ID:-}" ]]; then
   if [[ $consecutive -ge 2 ]]; then
-    MSG="✅ Debate complete — confidence ${last_confidence} after ${attempt} attempt(s). <@${DISCORD_MENTION_USER_ID:-}> Merge to train or close to reject."
+    MSG="✅ <@${DISCORD_MENTION_USER_ID:-}> Ready. Merge to approve or close to pass."
   else
-    MSG="⚠️ Max attempts reached — confidence ${last_confidence} after ${attempt} attempt(s). <@${DISCORD_MENTION_USER_ID:-}> Needs human review."
+    MSG="⚠️ <@${DISCORD_MENTION_USER_ID:-}> Couldn't reach a confident answer. Needs your input."
   fi
   curl -sf -X POST "https://discord.com/api/v10/channels/${DISCORD_THREAD_ID}/messages" \
     -H "Authorization: Bot ${DISCORD_BOT_TOKEN}" \

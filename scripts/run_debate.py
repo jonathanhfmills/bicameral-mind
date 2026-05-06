@@ -137,25 +137,18 @@ def run_logicagent(prompt: str, seed: str = "") -> str:
 
 def run_maintaineragent(topic: str, seed: str = "") -> tuple[str, str, str, float]:
     """MaintainerAgent: orchestrates 3-turn debate loop, returns (turn1, turn2, turn3, confidence)."""
-    post_to_thread(f"📖 Reading issue: **{topic[:100]}**")
-
-    post_to_thread("🤔 Initial response (Nullclaw, feelings-first)...")
     turn1 = run_nullclaw(topic, seed=seed)
-    post_to_thread(f"**Nullclaw:** {turn1[:1800]}")
+    post_to_thread(turn1[:1800])
 
-    post_to_thread("⚙️ Logic agent reviewing...")
     turn2 = run_logicagent(turn1, seed=seed)
-    post_to_thread(f"**LogicAgent:** {turn2[:1800]}")
+    post_to_thread(turn2[:1800])
 
-    post_to_thread("💛 Nullclaw synthesis...")
     turn3 = run_nullclaw(turn2, seed=seed)
-    post_to_thread(f"**Nullclaw (synthesis):** {turn3[:1800]}")
+    post_to_thread(turn3[:1800])
 
     base_confidence = float(os.environ.get("DEBATE_CONFIDENCE", "0.50"))
     turn_confidences = [base_confidence, base_confidence, base_confidence]
     maintainer_confidence = sum(turn_confidences) / len(turn_confidences)
-
-    post_to_thread(f"⚖️ Adjudication complete — confidence: **{maintainer_confidence:.2f}**")
 
     return turn1, turn2, turn3, maintainer_confidence
 
