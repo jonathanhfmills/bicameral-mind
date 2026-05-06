@@ -70,7 +70,8 @@ LLAMA_CPP_DIR ?= $(HOME)/llama.cpp
 llama-install: ## Build llama.cpp (rotorquant fork) with CUDA from source
 	git clone --branch feature/planarquant-kv-cache https://github.com/johndpope/llama-cpp-turboquant.git $(LLAMA_CPP_DIR) 2>/dev/null \
 		|| (git -C $(LLAMA_CPP_DIR) fetch origin && git -C $(LLAMA_CPP_DIR) checkout feature/planarquant-kv-cache && git -C $(LLAMA_CPP_DIR) pull)
-	cmake -B $(LLAMA_CPP_DIR)/build -DGGML_CUDA=ON -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS="-fpermissive" $(LLAMA_CPP_DIR)
+	sed -i 's/__attribute__ ((visibility ("default"))) extern/__attribute__ ((visibility ("default")))/g' $(LLAMA_CPP_DIR)/ggml/include/ggml.h
+	cmake -B $(LLAMA_CPP_DIR)/build -DGGML_CUDA=ON -DCMAKE_BUILD_TYPE=Release $(LLAMA_CPP_DIR)
 	cmake --build $(LLAMA_CPP_DIR)/build --config Release -j$$(nproc)
 
 llama-download: ## Download Qwen3.5-4B UD-Q4_K_XL GGUF
