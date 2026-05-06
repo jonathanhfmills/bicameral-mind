@@ -48,7 +48,7 @@ while [[ $attempt -lt $MAX_ATTEMPTS ]]; do
   else
     HOST_DIR="$HOST_DIR" ISSUE_URL="$ISSUE_URL" python3 "$RUN_DEBATE" 2>/dev/null || true
     RECORD=$(ls -t "$HOST_DIR/debates/"*.md 2>/dev/null | head -1)
-    confidence=$(grep "^confidence:" "$RECORD" 2>/dev/null | awk '{print $2}' || echo "0.50")
+    confidence=$(grep "^confidence:" "$RECORD" 2>/dev/null | head -1 | awk '{print $2}' || echo "0.50")
   fi
 
   echo "[ralph] Attempt $attempt confidence: $confidence"
