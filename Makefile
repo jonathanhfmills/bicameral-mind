@@ -1,4 +1,4 @@
-.PHONY: help debate ralph escalate training-pr observer maintainer digital-twin agent-start hindsight test ollama
+.PHONY: help debate ralph escalate training-pr observer maintainer digital-twin agent-start hindsight test ollama llama-install llama-download llama-serve
 
 SHELL := /bin/bash
 
@@ -20,6 +20,9 @@ help:
 	@echo "  hindsight      Install hindsight-client + hindsight-litellm memory providers"
 	@echo "  test           Run all engine tests"
 	@echo "  ollama         Setup guide for Ollama models (qwen2.5:7b + gemma2:9b)"
+	@echo "  llama-install  Build llama.cpp with CUDA from source"
+	@echo "  llama-download Download Qwen3.5-4B UD-Q4_K_XL GGUF"
+	@echo "  llama-serve    Start llama-server on port 8080 with CUDA and KV cache quantization"
 
 debate:
 	@HOST_DIR="$(HOST_DIR)" python3 "$(CURDIR)/scripts/run_debate.py"
@@ -60,3 +63,26 @@ ollama:
 	@echo "Ollama setup: install from https://ollama.ai then:"
 	@echo "  ollama pull qwen2.5:7b"
 	@echo "  ollama pull gemma2:9b"
+
+MODELS_DIR ?= $(HOME)/models
+LLAMA_CPP_DIR ?= $(HOME)/llama.cpp
+
+llama-install: ## Build llama.cpp with CUDA from source
+	git clone https://github.com/ggerganov/llama.cpp $(LLAMA_CPP_DIR) 2>/dev/null || git -C $(LLAMA_CPP_DIR) pull
+	cmake -B $(LLAMA_CPP_DIR)/build -DGGML_CUDA=ON $(LLAMA_CPP_DIR)
+	cmake --build $(LLAMA_CPP_DIR)/build --config Release -j$$(nproc)
+
+llama-download: ## Download Qwen3.5-4B UD-Q4_K_XL GGUF
+	mkdir -p $(MODELS_DIR)
+	huggingface-cli download unsloth/Qwen3.5-4B-GGUF \
+		Qwen3.5-4B-UD-Q4_K_XL.gguf \
+		--local-dir $(MODELS_DIR)
+
+llama-serve: ## Start llama-server on port 8080 with CUDA and KV cache quantization
+	$(LLAMA_CPP_DIR)/build/bin/llama-server \
+		-m $(MODELS_DIR)/Qwen3.5-4B-UD-Q4_K_XL.gguf \
+		-ngl 99 \
+		--port 8080 \
+		--host 0.0.0.0 \
+		-c 8192 \
+		--cache-type-k q8_0
