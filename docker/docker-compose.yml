@@ -1,0 +1,74 @@
+services:
+  openclaw:
+    image: ghcr.io/openclaw/openclaw:latest
+    environment:
+      - OMC_OPENCLAW=1
+      - OPENCLAW_REPLY_CHANNEL=discord
+      - OPENCLAW_REPLY_TARGET=${DISCORD_CHANNEL_ID}
+      - OPENCLAW_TOKEN=${OPENCLAW_TOKEN}
+      - OPENCLAW_GATEWAY_URL=${OPENCLAW_GATEWAY_URL}
+      - NULLCLAW_LLAMA_URL=${NULLCLAW_LLAMA_URL}
+      - LOGICAGENT_LLAMA_URL=${LOGICAGENT_LLAMA_URL:-${HERMES_LLAMA_URL}}
+      - LUCID_MCP_URL=${LUCID_MCP_URL}
+    volumes:
+      - ${HOST_DIR:-..}:/host:ro
+      - ${HOST_DIR:-..}/debates:/workspace/debates:rw
+      - ${HOST_DIR:-..}/agents/nullclaw/memory:/workspace/agents/nullclaw/memory:rw
+      - ./agents/logicagent/memory:/workspace/agents/logicagent/memory:rw
+    network_mode: host
+    restart: unless-stopped
+
+  digital-twin:
+    build:
+      context: .
+      dockerfile: Dockerfile.digital-twin
+    environment:
+      - ISSUE_URL=${ISSUE_URL:-}
+      - NULLCLAW_LLAMA_URL=${NULLCLAW_LLAMA_URL:-http://localhost:8080/v1}
+      - LOGICAGENT_LLAMA_URL=${LOGICAGENT_LLAMA_URL:-${HERMES_LLAMA_URL:-http://localhost:8081/v1}}
+      - HINDSIGHT_MCP_URL=http://hindsight-mcp:8888
+      - LUCID_MCP_URL=http://lucid-mcp:9000
+      - DEBATE_TOPIC=${DEBATE_TOPIC:-}
+      - MAX_ATTEMPTS=${MAX_ATTEMPTS:-10}
+      - HOST_DIR=/workspace
+    volumes:
+      - ${HOST_DIR:-..}:/workspace:ro
+      - ${HOST_DIR:-..}/debates:/workspace/debates:rw
+      - ${HOST_DIR:-..}/agents/nullclaw/memory:/workspace/agents/nullclaw/memory:rw
+      - ./agents/logicagent/memory:/workspace/agents/logicagent/memory:rw
+    depends_on:
+      - hindsight-mcp
+      - lucid-mcp
+    network_mode: host
+
+  hindsight-mcp:
+    image: ghcr.io/vectorize-io/hindsight-api:latest
+    environment:
+      - HINDSIGHT_API_LLM_PROVIDER=ollama
+      - HINDSIGHT_API_LLM_MODEL=${HINDSIGHT_LLM_MODEL:-llama3.2}
+      - HINDSIGHT_API_PORT=8888
+    ports:
+      - "8888:8888"
+    volumes:
+      - hindsight-data:/root/.pg0
+    restart: unless-stopped
+
+  lucid-mcp:
+    image: ghcr.io/lucid-memory/lucid:latest
+    environment:
+      - LUCID_MCP_URL=${LUCID_MCP_URL:-http://localhost:9000}
+    ports:
+      - "9000:9000"
+    restart: unless-stopped
+
+  desktop:
+    image: opensandbox/desktop:latest
+    environment:
+      - VNC_PASSWORD=${VNC_PASSWORD:-opensandbox}
+      - SANDBOX_DOMAIN=localhost:8080
+    ports:
+      - "5900:5900"
+      - "6080:6080"
+
+volumes:
+  hindsight-data:

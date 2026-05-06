@@ -1,0 +1,19 @@
+name: logicagent
+description: "Logic-first debater. Systematic, evidence-based, principled."
+runtime: ghcr.io/openclaw/openclaw:latest
+soul: SOUL.md
+rules: RULES.md
+model:
+  provider: openai_compatible
+  base_url: "${LOGICAGENT_LLAMA_URL:-${HERMES_LLAMA_URL:-http://localhost:8081/v1}}"  # llama.cpp, Qwen 3.5, laptop A4000
+  model: "${LOGICAGENT_MODEL:-${HERMES_MODEL:-qwen3.5}}"
+memory:
+  provider: hindsight
+  mode: local_embedded
+  llm_provider: openai_compatible
+  llm_base_url: "${LOGICAGENT_LLAMA_URL:-${HERMES_LLAMA_URL:-http://localhost:8081/v1}}"
+  bank_id_template: "logicagent-{workspace}"
+  memory_mode: hybrid
+  auto_recall: true
+  auto_retain: true
+  recall_budget: mid

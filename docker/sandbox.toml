@@ -1,0 +1,6 @@
+[storage]
+allowed_host_paths = [
+  "${HOST_DIR}/debates",
+  "${HOST_DIR}/agents/nullclaw/memory",
+  "./agents/logicagent/memory"
+]

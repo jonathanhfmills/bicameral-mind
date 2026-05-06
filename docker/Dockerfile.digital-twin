@@ -1,0 +1,45 @@
+FROM ubuntu:24.04 AS base
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV HOME=/root
+
+RUN apt-get update && apt-get install -y \
+    git curl make stow \
+    build-essential python3 python3-pip python3-venv \
+    bc jq \
+    && rm -rf /var/lib/apt/lists/*
+
+# Seed dotfiles (bind mount at runtime; clone for build-time layer)
+RUN git clone https://github.com/jonmills/dotfiles.git "$HOME/dotfiles" 2>/dev/null || true
+
+WORKDIR $HOME/dotfiles
+
+FROM base AS with-node
+RUN make nvm node 2>/dev/null || (curl -fsSL https://fnm.vercel.app/install | bash \
+    && export PATH="$HOME/.local/share/fnm:$PATH" \
+    && fnm install --lts && fnm use lts-latest)
+
+FROM with-node AS with-claude
+RUN make claude claude-plugins 2>/dev/null || \
+    npm install -g @anthropic-ai/claude-code 2>/dev/null || true
+
+FROM with-claude AS with-hindsight
+RUN make hindsight 2>/dev/null || \
+    pip3 install --quiet hindsight-client hindsight-litellm 2>/dev/null || true
+
+FROM with-hindsight AS with-qwen
+RUN make qwen 2>/dev/null || \
+    npm install -g @qwen-code/qwen-code 2>/dev/null || true
+
+FROM with-qwen AS with-gemini
+RUN make gemini 2>/dev/null || \
+    npm install -g @google/gemini-cli 2>/dev/null || true
+
+FROM with-gemini AS final
+
+# Gemini CLI config: local Gemma 4 only (Google TOS: no personal subscriptions for agentic turns)
+ENV GEMINI_BASE_URL=${NULLCLAW_LLAMA_URL:-http://localhost:8080/v1}
+ENV GEMINI_MODEL=${NULLCLAW_MODEL:-gemma4}
+
+WORKDIR /workspace
+CMD ["bash"]
