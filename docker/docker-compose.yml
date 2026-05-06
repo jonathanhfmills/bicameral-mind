@@ -13,7 +13,6 @@ services:
       - OPENCLAW_REPLY_TARGET=${DISCORD_CHANNEL_ID}
       - OPENCLAW_TOKEN=${OPENCLAW_TOKEN}
       - DISCORD_BOT_TOKEN=${DISCORD_BOT_TOKEN}
-      - OPENCLAW_GATEWAY_URL=${OPENCLAW_GATEWAY_URL}
       - OLLAMA_BASE_URL=http://ollama:11434/v1
       - NULLCLAW_LLAMA_URL=http://ollama:11434/v1
       - LOGICAGENT_LLAMA_URL=http://ollama:11434/v1
@@ -22,6 +21,7 @@ services:
     depends_on:
       - ollama
     volumes:
+      - openclaw-config:/home/node/.openclaw
       - ${HOST_DIR:-..}:/host:ro
       - ${HOST_DIR:-..}/debates:/workspace/debates:rw
       - ${HOST_DIR:-..}/agents/nullclaw/memory:/workspace/agents/nullclaw/memory:rw
@@ -90,3 +90,4 @@ services:
 volumes:
   hindsight-data:
   ollama-data:
+  openclaw-config:

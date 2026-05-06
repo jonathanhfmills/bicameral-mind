@@ -73,6 +73,16 @@ CONFIDENCE_SCORES="${confidence_scores[*]}" \
   HOST_DIR="$HOST_DIR" \
   ISSUE_URL="$ISSUE_URL" \
   DRY_RUN="$DRY_RUN" \
-  bash "$SCRIPTS_DIR/create_training_pr.sh"
+  bash "$SCRIPTS_DIR/create_training_pr.sh" || true
 
 echo "[ralph] Done. Final confidence: $last_confidence after $attempt attempt(s)"
+
+if [[ -n "${DISCORD_BOT_TOKEN:-}" && -n "${DISCORD_CHANNEL_ID:-}" ]]; then
+  RECORD=$(ls -t "$HOST_DIR/debates/"*.md 2>/dev/null | head -1)
+  MSG="🧠 Debate complete: ${ISSUE_URL:-unnamed}\nConfidence: ${last_confidence} after ${attempt} attempt(s)\nRecord: $(basename "$RECORD" 2>/dev/null || echo 'none')"
+  curl -sf -X POST "https://discord.com/api/v10/channels/${DISCORD_CHANNEL_ID}/messages" \
+    -H "Authorization: Bot ${DISCORD_BOT_TOKEN}" \
+    -H "Content-Type: application/json" \
+    -d "{\"content\":\"${MSG}\"}" > /dev/null \
+    && echo "[ralph] Discord notification sent" || echo "[ralph] Discord notification failed (non-fatal)"
+fi
