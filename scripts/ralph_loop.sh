@@ -8,6 +8,22 @@ SCRIPTS_DIR="$BICAMERAL_ROOT/scripts"
 HOST_DIR="${HOST_DIR:-$BICAMERAL_ROOT}"
 ISSUE_URL="${ISSUE_URL:-${1:-}}"
 DRY_RUN="${DRY_RUN:-false}"
+
+update_presence() {
+  local status="$1" activity="${2:-}"
+  [[ -z "${OPENCLAW_GATEWAY_URL_LOCAL:-}" || -z "${OPENCLAW_GATEWAY_TOKEN:-}" ]] && return 0
+  local payload
+  if [[ -n "$activity" ]]; then
+    payload=$(python3 -c "import json,sys; print(json.dumps({'status':sys.argv[1],'activity':{'name':sys.argv[2][:128],'type':0}}))" "$status" "$activity")
+  else
+    payload=$(python3 -c "import json,sys; print(json.dumps({'status':sys.argv[1]}))" "$status")
+  fi
+  curl -sf -X POST "${OPENCLAW_GATEWAY_URL_LOCAL:-http://localhost:18789}/api/system/presence" \
+    -H "Authorization: Bearer ${OPENCLAW_GATEWAY_TOKEN}" \
+    -H "Content-Type: application/json" \
+    -d "$payload" > /dev/null 2>&1 || true
+}
+trap 'update_presence online' EXIT INT TERM
 MAX_ATTEMPTS="${MAX_ATTEMPTS:-10}"
 CONFIDENCE_THRESHOLD="0.75"
 
@@ -34,14 +50,17 @@ echo "[ralph] Starting loop. Issue: ${ISSUE_URL:-stub} threshold=${CONFIDENCE_TH
 DISCORD_THREAD_ID=""
 if [[ -n "${DISCORD_BOT_TOKEN:-}" && -n "${DISCORD_FORUM_CHANNEL_ID:-}" ]]; then
   THREAD_TITLE=$(echo "${ISSUE_URL:-${DEBATE_TOPIC:-unnamed}}" | sed 's|https\?://[^/]*/||')
+  THREAD_PAYLOAD=$(python3 -c "import json,sys; title=sys.argv[1][:100]; print(json.dumps({'name':title,'message':{'content':'\U0001f440 '+title}}))" "$THREAD_TITLE")
   THREAD_RESP=$(curl -sf -X POST \
     "https://discord.com/api/v10/channels/${DISCORD_FORUM_CHANNEL_ID}/threads" \
     -H "Authorization: Bot ${DISCORD_BOT_TOKEN}" \
     -H "Content-Type: application/json" \
-    -d "{\"name\":\"$(echo "$THREAD_TITLE" | cut -c1-100)\",\"message\":{\"content\":\"👀 ${THREAD_TITLE}\"}}" \
+    -d "$THREAD_PAYLOAD" \
     2>/dev/null || echo "")
   DISCORD_THREAD_ID=$(echo "$THREAD_RESP" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('id',''))" 2>/dev/null || echo "")
   [[ -n "$DISCORD_THREAD_ID" ]] && echo "[ralph] Forum thread created: $DISCORD_THREAD_ID"
+  ISSUE_SLUG_SHORT=$(echo "${ISSUE_URL:-${DEBATE_TOPIC:-unnamed}}" | sed 's|https\?://[^/]*/||' | cut -c1-60)
+  update_presence dnd "Debating: ${ISSUE_SLUG_SHORT}"
 fi
 export DISCORD_THREAD_ID DISCORD_BOT_TOKEN DISCORD_MENTION_USER_ID
 
@@ -83,23 +102,55 @@ while [[ $attempt -lt $MAX_ATTEMPTS ]]; do
   fi
 done
 
-CONFIDENCE_SCORES="${confidence_scores[*]}" \
+PR_URL=$(CONFIDENCE_SCORES="${confidence_scores[*]}" \
   HOST_DIR="$HOST_DIR" \
   ISSUE_URL="$ISSUE_URL" \
   DRY_RUN="$DRY_RUN" \
-  bash "$SCRIPTS_DIR/create_training_pr.sh" || true
+  bash "$SCRIPTS_DIR/create_training_pr.sh" 2>/dev/null | grep '^PR_URL=' | cut -d= -f2 || true)
+PR_NUMBER=$(echo "${PR_URL:-}" | grep -oE '[0-9]+$' || true)
+echo "[ralph] Training PR: ${PR_URL:-unknown}"
 
 echo "[ralph] Done. Final confidence: $last_confidence after $attempt attempt(s)"
 
 if [[ -n "${DISCORD_BOT_TOKEN:-}" && -n "${DISCORD_THREAD_ID:-}" ]]; then
   if [[ $consecutive -ge 2 ]]; then
-    MSG="✅ <@${DISCORD_MENTION_USER_ID:-}> Ready. Merge to approve or close to pass."
+    if [[ -n "${PR_URL:-}" ]]; then
+      CONTENT="✅ <@${DISCORD_MENTION_USER_ID:-}> Debate complete (confidence: ${last_confidence}). PR: ${PR_URL}"
+    else
+      CONTENT="✅ <@${DISCORD_MENTION_USER_ID:-}> Debate complete (confidence: ${last_confidence}). PR creation failed — check logs."
+    fi
   else
-    MSG="⚠️ <@${DISCORD_MENTION_USER_ID:-}> Couldn't reach a confident answer. Needs your input."
+    CONTENT="⚠️ <@${DISCORD_MENTION_USER_ID:-}> Couldn't reach confident answer after ${attempt} attempts."
+  fi
+  if [[ -n "${PR_NUMBER:-}" ]]; then
+    PAYLOAD=$(python3 -c "
+import json, sys
+content = sys.argv[1]
+pr_num = sys.argv[2]
+users = [content.split('<@')[1].split('>')[0]] if '<@' in content else []
+print(json.dumps({
+  'content': content,
+  'allowed_mentions': {'parse': [], 'users': users},
+  'components': [{
+    'type': 1,
+    'components': [
+      {'type': 2, 'style': 3, 'label': 'Merge ✅', 'custom_id': f'debate_merge:{pr_num}'},
+      {'type': 2, 'style': 4, 'label': 'Close ✖', 'custom_id': f'debate_close:{pr_num}'}
+    ]
+  }]
+}))
+" "$CONTENT" "$PR_NUMBER")
+  else
+    PAYLOAD=$(python3 -c "
+import json, sys
+content = sys.argv[1]
+users = [content.split('<@')[1].split('>')[0]] if '<@' in content else []
+print(json.dumps({'content': content, 'allowed_mentions': {'parse': [], 'users': users}}))
+" "$CONTENT")
   fi
   curl -sf -X POST "https://discord.com/api/v10/channels/${DISCORD_THREAD_ID}/messages" \
     -H "Authorization: Bot ${DISCORD_BOT_TOKEN}" \
     -H "Content-Type: application/json" \
-    -d "{\"content\":\"${MSG}\"}" > /dev/null \
+    -d "$PAYLOAD" > /dev/null \
     && echo "[ralph] Discord thread final post sent" || echo "[ralph] Discord thread post failed (non-fatal)"
 fi

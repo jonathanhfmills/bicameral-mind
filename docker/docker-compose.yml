@@ -5,13 +5,16 @@ services:
       - OMC_OPENCLAW=1
       - OPENCLAW_REPLY_CHANNEL=discord
       - OPENCLAW_REPLY_TARGET=${DISCORD_CHANNEL_ID}
-      - OPENCLAW_TOKEN=${OPENCLAW_TOKEN}
+      - OPENCLAW_GATEWAY_TOKEN=${OPENCLAW_GATEWAY_TOKEN}
       - DISCORD_BOT_TOKEN=${DISCORD_BOT_TOKEN}
+      - OPENCLAW_GATEWAY_TOKEN=${OPENCLAW_GATEWAY_TOKEN}
       - OLLAMA_BASE_URL=http://host.docker.internal:8080/v1
       - NULLCLAW_LLAMA_URL=http://host.docker.internal:8080/v1
       - LOGICAGENT_LLAMA_URL=http://host.docker.internal:8080/v1
       - MAINTAINERAGENT_LLAMA_URL=http://host.docker.internal:8080/v1
       - LUCID_MCP_URL=${LUCID_MCP_URL}
+      - KOKORO_URL=http://kokoro-tts:8880/v1
+      - FASTER_WHISPER_URL=http://faster-whisper:8000/v1
     volumes:
       - openclaw-config:/home/node/.openclaw
       - ${HOST_DIR:-..}:/host:ro
@@ -56,7 +59,7 @@ services:
       - HINDSIGHT_API_LLM_MODEL=${HINDSIGHT_LLM_MODEL:-qwen3.5:0.8b}
       - HINDSIGHT_API_PORT=8888
     ports:
-      - "8888:8888"
+      - "127.0.0.1:8888:8888"
     volumes:
       - hindsight-data:/root/.pg0
     restart: unless-stopped
@@ -66,7 +69,7 @@ services:
     environment:
       - LUCID_MCP_URL=${LUCID_MCP_URL:-http://localhost:9000}
     ports:
-      - "9000:9000"
+      - "127.0.0.1:9000:9000"
     restart: unless-stopped
 
   desktop:
@@ -77,6 +80,27 @@ services:
     ports:
       - "127.0.0.1:5900:5900"
       - "127.0.0.1:6080:6080"
+
+  kokoro-tts:
+    image: ghcr.io/remsky/kokoro-fastapi-cpu:v0.2.2
+    ports:
+      - "127.0.0.1:8880:8880"
+    restart: unless-stopped
+
+  faster-whisper:
+    image: fedirz/faster-whisper-server:latest-cuda
+    ports:
+      - "127.0.0.1:8000:8000"
+    environment:
+      - WHISPER__MODEL=large-v3
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    restart: unless-stopped
 
 volumes:
   hindsight-data:
