@@ -7,7 +7,6 @@ services:
       - OPENCLAW_REPLY_TARGET=${DISCORD_CHANNEL_ID}
       - OPENCLAW_GATEWAY_TOKEN=${OPENCLAW_GATEWAY_TOKEN}
       - DISCORD_BOT_TOKEN=${DISCORD_BOT_TOKEN}
-      - OPENCLAW_GATEWAY_TOKEN=${OPENCLAW_GATEWAY_TOKEN}
       - OLLAMA_BASE_URL=http://host.docker.internal:8080/v1
       - NULLCLAW_LLAMA_URL=http://host.docker.internal:8080/v1
       - LOGICAGENT_LLAMA_URL=http://host.docker.internal:8080/v1
@@ -58,8 +57,6 @@ services:
       - HINDSIGHT_API_LLM_BASE_URL=http://host.docker.internal:8080/v1
       - HINDSIGHT_API_LLM_MODEL=${HINDSIGHT_LLM_MODEL:-qwen3.5:0.8b}
       - HINDSIGHT_API_PORT=8888
-    ports:
-      - "127.0.0.1:8888:8888"
     volumes:
       - hindsight-data:/root/.pg0
     restart: unless-stopped
@@ -68,8 +65,6 @@ services:
     image: ghcr.io/lucid-memory/lucid:latest
     environment:
       - LUCID_MCP_URL=${LUCID_MCP_URL:-http://localhost:9000}
-    ports:
-      - "127.0.0.1:9000:9000"
     restart: unless-stopped
 
   desktop:
