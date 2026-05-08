@@ -86,6 +86,6 @@ llama-serve: ## Start llama-server on port 8080 with CUDA and rotorquant KV cach
 		-ngl 99 \
 		--port 8080 \
 		--host 0.0.0.0 \
-		-c 8192 \
+		-c 32768 \
 		--cache-type-k iso3 \
 		--cache-type-v iso3

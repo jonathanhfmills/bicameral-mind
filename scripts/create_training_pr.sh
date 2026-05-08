@@ -50,7 +50,7 @@ ${HINDSIGHT_SECTION:-_No hindsight patterns available_}
 
 Runs: ${CONFIDENCE_SCORES}
 Final: ${CONFIDENCE}
-$(if python3 -c "exit(0 if float('${CONFIDENCE}') < 0.75 else 1)" 2>/dev/null; then
+$(if python3 -c "import sys; sys.exit(0 if float(sys.argv[1]) < 0.75 else 1)" "${CONFIDENCE:-0.00}" 2>/dev/null; then
   echo "Label: needs-help (confidence < 0.75 — consider manual escalation)"
 else
   echo "Label: auto-passed (confidence >= 0.75)"
@@ -70,9 +70,14 @@ Date: ${DATE}
 if [[ "$DRY_RUN" == "true" ]]; then
   echo "[training-pr] DRY RUN — PR body preview:"
   echo "$PR_BODY" | head -20
-  gh pr create --title "$PR_TITLE" --body "$PR_BODY" 2>/dev/null || echo "[training-pr] gh stub invoked"
+  echo "[training-pr] gh stub invoked"
+  echo "PR_URL=https://github.com/dry-run/stub/pull/0"
   exit 0
 fi
 
-gh pr create --title "$PR_TITLE" --body "$PR_BODY"
+if ! PR_URL=$(gh pr create --title "$PR_TITLE" --body "$PR_BODY" 2>&1); then
+  echo "[training-pr] ERROR: gh pr create failed: ${PR_URL}" >&2
+  exit 1
+fi
 echo "[training-pr] PR created for $ISSUE_SLUG"
+echo "PR_URL=${PR_URL}"
